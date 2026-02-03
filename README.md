@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: REPLACE_WITH_PROJECT_URL
+**URL**: https://github.com/sinannzorlu/todo-app.git
 
 ## How can I edit this code?
 
