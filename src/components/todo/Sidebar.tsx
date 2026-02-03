@@ -2,6 +2,8 @@ import { Category, TaskStats, FilterType } from '@/types/todo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import {
   Inbox,
   CheckCircle2,
@@ -11,6 +13,7 @@ import {
   Lightbulb,
   Sun,
   Moon,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,7 +40,14 @@ export const Sidebar = ({
   isDark,
   toggleTheme,
 }: SidebarProps) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const filterItems = [
     { id: 'all' as FilterType, label: 'Tümü', icon: Inbox, count: stats.total },
@@ -53,14 +63,26 @@ export const Sidebar = ({
           <h1 className="text-xl font-bold text-sidebar-foreground">
             📝 Yapılacaklar
           </h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="text-sidebar-foreground"
-          >
-            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTheme}
+              className="text-sidebar-foreground"
+              title={isDark ? 'Aydınlık mod' : 'Karanlık mod'}
+            >
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="text-sidebar-foreground hover:text-destructive"
+              title="Çıkış yap"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Stats Card */}
