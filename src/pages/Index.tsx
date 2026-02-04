@@ -4,10 +4,12 @@ import { useTheme } from '@/hooks/useTheme';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { Sidebar } from '@/components/todo/Sidebar';
 import { TaskList } from '@/components/todo/TaskList';
+import { Loader2 } from 'lucide-react';
 
 const Index = () => {
   const {
     tasks,
+    loading,
     filter,
     setFilter,
     sort,
@@ -29,12 +31,10 @@ const Index = () => {
   const { isDark, toggleTheme } = useTheme();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcuts
   useKeyboardShortcuts([
     {
       key: 'n',
       action: () => {
-        // Focus on add button - handled via state in TaskList
         document.querySelector<HTMLButtonElement>('button[class*="gap-2"]')?.click();
       },
       description: 'Yeni görev ekle',
@@ -47,6 +47,14 @@ const Index = () => {
       description: 'Aramaya odaklan',
     },
   ]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-background items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

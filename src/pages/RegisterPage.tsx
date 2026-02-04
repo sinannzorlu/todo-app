@@ -5,15 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { AlertCircle, CheckSquare, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckSquare, Loader2, CheckCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
-const LoginPage = () => {
+const RegisterPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signInWithGoogle, user, loading } = useAuth();
+  const { signUp, signInWithGoogle, user, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,16 +33,28 @@ const LoginPage = () => {
       return;
     }
 
+    if (password.length < 6) {
+      setError('Şifre en az 6 karakter olmalıdır');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Şifreler eşleşmiyor');
+      return;
+    }
+
     setIsLoading(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signUp(email, password);
     setIsLoading(false);
 
     if (error) {
-      setError(error.message === 'Invalid login credentials' 
-        ? 'Email veya şifre hatalı' 
-        : error.message);
+      if (error.message.includes('already registered')) {
+        setError('Bu email adresi zaten kayıtlı');
+      } else {
+        setError(error.message);
+      }
     } else {
-      navigate('/');
+      setSuccess(true);
     }
   };
 
@@ -63,6 +77,32 @@ const LoginPage = () => {
     );
   }
 
+  if (success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 rounded-full bg-green-500/10">
+                <CheckCircle className="h-8 w-8 text-green-500" />
+              </div>
+            </div>
+            <CardTitle className="text-2xl">Kayıt Başarılı!</CardTitle>
+            <CardDescription>
+              Email adresinize bir doğrulama bağlantısı gönderdik. 
+              Lütfen emailinizi kontrol edin ve hesabınızı doğrulayın.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <Link to="/login">Giriş Sayfasına Git</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -72,9 +112,9 @@ const LoginPage = () => {
               <CheckSquare className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl">Hoş Geldiniz</CardTitle>
+          <CardTitle className="text-2xl">Hesap Oluştur</CardTitle>
           <CardDescription>
-            Todo uygulamasına giriş yapın
+            Todo uygulamasına kayıt olun
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -103,7 +143,7 @@ const LoginPage = () => {
                 fill="#EA4335"
               />
             </svg>
-            Google ile Giriş Yap
+            Google ile Kayıt Ol
           </Button>
 
           <div className="relative">
@@ -134,10 +174,21 @@ const LoginPage = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="Şifrenizi girin"
+                placeholder="En az 6 karakter"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Şifre Tekrar</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Şifrenizi tekrar girin"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
               />
             </div>
             
@@ -152,19 +203,19 @@ const LoginPage = () => {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Giriş Yapılıyor...
+                  Kayıt Yapılıyor...
                 </>
               ) : (
-                'Giriş Yap'
+                'Kayıt Ol'
               )}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            Hesabınız yok mu?{' '}
-            <Link to="/register" className="text-primary hover:underline font-medium">
-              Kayıt Ol
+            Zaten hesabınız var mı?{' '}
+            <Link to="/login" className="text-primary hover:underline font-medium">
+              Giriş Yap
             </Link>
           </p>
         </CardFooter>
@@ -173,4 +224,4 @@ const LoginPage = () => {
   );
 };
 
-export default LoginPage;
+export default RegisterPage;
