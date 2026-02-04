@@ -80,11 +80,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Validate OAuth URL before redirect (security: prevent open redirect)
       if (data?.url) {
         const oauthUrl = new URL(data.url);
-        const allowedHosts = ["accounts.google.com"];
-        if (!allowedHosts.some((host) => oauthUrl.hostname === host)) {
+        // Supabase OAuth first redirects to Supabase auth, then to Google
+        const allowedHosts = [
+          "accounts.google.com",
+          "xzaxmrpuheyzyinkaoff.supabase.co", // Supabase project auth URL
+        ];
+        if (!allowedHosts.some((host) => oauthUrl.hostname.includes(host.split('.')[0]))) {
           throw new Error("Invalid OAuth redirect URL");
         }
         window.location.href = data.url;
+      } else {
+        throw new Error("OAuth URL alınamadı");
       }
     } else {
       // For Lovable domains, use managed solution
