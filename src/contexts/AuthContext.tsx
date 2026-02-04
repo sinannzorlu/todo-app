@@ -60,9 +60,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
-    });
+    // Detect if we're on a custom domain (not Lovable preview)
+    const isCustomDomain =
+      !window.location.hostname.includes("lovable.app") &&
+      !window.location.hostname.includes("lovableproject.com");
+
+    if (isCustomDomain) {
+      // Bypass auth-bridge for custom domains (local, Vercel, etc.)
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) throw error;
+
+      // Validate OAuth URL before redirect (security: prevent open redirect)
+      if (data?.url) {
+        const oauthUrl = new URL(data.url);
+        const allowedHosts = ["accounts.google.com"];
+        if (!allowedHosts.some((host) => oauthUrl.hostname === host)) {
+          throw new Error("Invalid OAuth redirect URL");
+        }
+        window.location.href = data.url;
+      }
+    } else {
+      // For Lovable domains, use managed solution
+      await lovable.auth.signInWithOAuth('google', {
+        redirect_uri: window.location.origin,
+      });
+    }
   };
 
   const signOut = async () => {
