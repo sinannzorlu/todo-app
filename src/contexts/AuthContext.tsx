@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable';
 
 interface AuthContextType {
   user: User | null;
@@ -60,11 +59,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    // Always use Lovable's managed OAuth - works for all domains
-    // Lovable Cloud handles the OAuth flow and redirects correctly
-    await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
     });
+
+    if (error) {
+      console.error("Google Login Error:", error);
+      throw error;
+    }
   };
 
   const signOut = async () => {
@@ -72,14 +77,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      session, 
-      loading, 
-      signUp, 
-      signIn, 
-      signInWithGoogle, 
-      signOut 
+    <AuthContext.Provider value={{
+      user,
+      session,
+      loading,
+      signUp,
+      signIn,
+      signInWithGoogle,
+      signOut
     }}>
       {children}
     </AuthContext.Provider>
