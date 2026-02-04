@@ -60,44 +60,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithGoogle = async () => {
-    // Detect if we're on a custom domain (not Lovable preview)
-    const isCustomDomain =
-      !window.location.hostname.includes("lovable.app") &&
-      !window.location.hostname.includes("lovableproject.com");
-
-    if (isCustomDomain) {
-      // Bypass auth-bridge for custom domains (local, Vercel, etc.)
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: window.location.origin,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-
-      // Validate OAuth URL before redirect (security: prevent open redirect)
-      if (data?.url) {
-        const oauthUrl = new URL(data.url);
-        // Supabase OAuth first redirects to Supabase auth, then to Google
-        const allowedHosts = [
-          "accounts.google.com",
-          "xzaxmrpuheyzyinkaoff.supabase.co", // Supabase project auth URL
-        ];
-        if (!allowedHosts.some((host) => oauthUrl.hostname.includes(host.split('.')[0]))) {
-          throw new Error("Invalid OAuth redirect URL");
-        }
-        window.location.href = data.url;
-      } else {
-        throw new Error("OAuth URL alınamadı");
-      }
-    } else {
-      // For Lovable domains, use managed solution
-      await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: window.location.origin,
-      });
-    }
+    // Always use Lovable's managed OAuth - works for all domains
+    // Lovable Cloud handles the OAuth flow and redirects correctly
+    await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+    });
   };
 
   const signOut = async () => {
