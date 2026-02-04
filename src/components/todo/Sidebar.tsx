@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+
 import {
   Inbox,
   CheckCircle2,
@@ -40,13 +40,11 @@ export const Sidebar = ({
   isDark,
   toggleTheme,
 }: SidebarProps) => {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
+  const { signOut } = useAuth();
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    await signOut();
   };
 
   const filterItems = [

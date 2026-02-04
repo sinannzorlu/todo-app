@@ -1,50 +1,72 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Task, FilterType, SortType, Priority, TaskStats, DEFAULT_CATEGORIES } from '@/types/todo';
 import { isToday, isThisWeek, isPast, isSameDay } from 'date-fns';
-
-const STORAGE_KEY = 'todo-tasks';
-
-const generateId = () => Math.random().toString(36).substring(2, 15);
-
-const loadTasks = (): Task[] => {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      const tasks = JSON.parse(stored);
-      return tasks.map((task: any) => ({
-        ...task,
-        createdAt: new Date(task.createdAt),
-        dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        reminder: task.reminder ? new Date(task.reminder) : undefined,
-      }));
-    }
-  } catch (error) {
-    console.error('Failed to load tasks:', error);
-  }
-  return [];
-};
-
-const saveTasks = (tasks: Task[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  } catch (error) {
-    console.error('Failed to save tasks:', error);
-  }
-};
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 export const useTasks = () => {
-  const [tasks, setTasks] = useState<Task[]>(loadTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<FilterType>('all');
   const [sort, setSort] = useState<SortType>('date');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  // Fetch tasks from database
+  const fetchTasks = useCallback(async () => {
+    if (!user) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mappedTasks: Task[] = (data || []).map((todo: any) => ({
+        id: todo.id,
+        title: todo.title,
+        description: todo.description || undefined,
+        completed: todo.completed,
+        createdAt: new Date(todo.created_at),
+        dueDate: todo.due_date ? new Date(todo.due_date) : undefined,
+        priority: todo.priority as Priority,
+        tags: todo.tags || [],
+        categoryId: todo.category_id || undefined,
+        reminder: todo.reminder ? new Date(todo.reminder) : undefined,
+        isRecurring: todo.is_recurring || false,
+        recurringPattern: (todo.recurring_pattern as 'daily' | 'weekly' | 'monthly') || undefined,
+        order: todo.order || 0,
+      }));
+
+      setTasks(mappedTasks);
+    } catch (error: any) {
+      toast({
+        title: 'Hata',
+        description: 'Görevler yüklenirken bir hata oluştu.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [user, toast]);
 
   useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+    fetchTasks();
+  }, [fetchTasks]);
 
-  const addTask = useCallback((
+  const addTask = useCallback(async (
     title: string,
     options?: {
       description?: string;
@@ -57,49 +79,139 @@ export const useTasks = () => {
       recurringPattern?: 'daily' | 'weekly' | 'monthly';
     }
   ) => {
-    const newTask: Task = {
-      id: generateId(),
-      title,
-      description: options?.description,
-      completed: false,
-      createdAt: new Date(),
-      dueDate: options?.dueDate,
-      priority: options?.priority || 'medium',
-      tags: options?.tags || [],
-      categoryId: options?.categoryId,
-      reminder: options?.reminder,
-      isRecurring: options?.isRecurring,
-      recurringPattern: options?.recurringPattern,
-      order: tasks.length,
-    };
-    setTasks(prev => [newTask, ...prev]);
-    return newTask;
-  }, [tasks.length]);
+    if (!user) return null;
 
-  const updateTask = useCallback((id: string, updates: Partial<Task>) => {
-    setTasks(prev => prev.map(task =>
-      task.id === id ? { ...task, ...updates } : task
-    ));
-  }, []);
+    try {
+      const { data, error } = await supabase
+        .from('todos')
+        .insert({
+          user_id: user.id,
+          title,
+          description: options?.description || null,
+          due_date: options?.dueDate ? options.dueDate.toISOString().split('T')[0] : null,
+          priority: options?.priority || 'medium',
+          tags: options?.tags || [],
+          category_id: options?.categoryId || null,
+          reminder: options?.reminder?.toISOString() || null,
+          is_recurring: options?.isRecurring || false,
+          recurring_pattern: options?.recurringPattern as string | null,
+          order: tasks.length,
+        })
+        .select()
+        .single();
 
-  const deleteTask = useCallback((id: string) => {
-    setTasks(prev => prev.filter(task => task.id !== id));
-  }, []);
+      if (error) throw error;
 
-  const toggleComplete = useCallback((id: string) => {
-    setTasks(prev => prev.map(task =>
-      task.id === id ? { ...task, completed: !task.completed } : task
-    ));
-  }, []);
+      const newTask: Task = {
+        id: data.id,
+        title: data.title,
+        description: data.description || undefined,
+        completed: data.completed,
+        createdAt: new Date(data.created_at),
+        dueDate: data.due_date ? new Date(data.due_date) : undefined,
+        priority: data.priority as Priority,
+        tags: data.tags || [],
+        categoryId: data.category_id || undefined,
+        reminder: data.reminder ? new Date(data.reminder) : undefined,
+        isRecurring: data.is_recurring || false,
+        recurringPattern: (data.recurring_pattern as 'daily' | 'weekly' | 'monthly') || undefined,
+        order: data.order || 0,
+      };
 
-  const reorderTasks = useCallback((startIndex: number, endIndex: number) => {
-    setTasks(prev => {
-      const result = Array.from(prev);
-      const [removed] = result.splice(startIndex, 1);
-      result.splice(endIndex, 0, removed);
-      return result.map((task, index) => ({ ...task, order: index }));
-    });
-  }, []);
+      setTasks(prev => [newTask, ...prev]);
+      return newTask;
+    } catch (error: any) {
+      toast({
+        title: 'Hata',
+        description: 'Görev eklenirken bir hata oluştu.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  }, [user, tasks.length, toast]);
+
+  const updateTask = useCallback(async (id: string, updates: Partial<Task>) => {
+    if (!user) return;
+
+    try {
+      const dbUpdates: any = {};
+      if (updates.title !== undefined) dbUpdates.title = updates.title;
+      if (updates.description !== undefined) dbUpdates.description = updates.description || null;
+      if (updates.completed !== undefined) dbUpdates.completed = updates.completed;
+      if (updates.dueDate !== undefined) dbUpdates.due_date = updates.dueDate ? updates.dueDate.toISOString().split('T')[0] : null;
+      if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+      if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+      if (updates.categoryId !== undefined) dbUpdates.category_id = updates.categoryId || null;
+      if (updates.reminder !== undefined) dbUpdates.reminder = updates.reminder?.toISOString() || null;
+      if (updates.isRecurring !== undefined) dbUpdates.is_recurring = updates.isRecurring;
+      if (updates.recurringPattern !== undefined) dbUpdates.recurring_pattern = updates.recurringPattern as string | null;
+      if (updates.order !== undefined) dbUpdates.order = updates.order;
+
+      const { error } = await supabase
+        .from('todos')
+        .update(dbUpdates)
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.map(task =>
+        task.id === id ? { ...task, ...updates } : task
+      ));
+    } catch (error: any) {
+      toast({
+        title: 'Hata',
+        description: 'Görev güncellenirken bir hata oluştu.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, toast]);
+
+  const deleteTask = useCallback(async (id: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setTasks(prev => prev.filter(task => task.id !== id));
+    } catch (error: any) {
+      toast({
+        title: 'Hata',
+        description: 'Görev silinirken bir hata oluştu.',
+        variant: 'destructive',
+      });
+    }
+  }, [user, toast]);
+
+  const toggleComplete = useCallback(async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+      await updateTask(id, { completed: !task.completed });
+    }
+  }, [tasks, updateTask]);
+
+  const reorderTasks = useCallback(async (startIndex: number, endIndex: number) => {
+    const result = Array.from(tasks);
+    const [removed] = result.splice(startIndex, 1);
+    result.splice(endIndex, 0, removed);
+    
+    const reorderedTasks = result.map((task, index) => ({ ...task, order: index }));
+    setTasks(reorderedTasks);
+
+    // Update order in database (batch update)
+    for (const task of reorderedTasks) {
+      await supabase
+        .from('todos')
+        .update({ order: task.order })
+        .eq('id', task.id);
+    }
+  }, [tasks]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -110,26 +222,22 @@ export const useTasks = () => {
   const filteredAndSortedTasks = useMemo(() => {
     let result = [...tasks];
 
-    // Filter by completion status
     if (filter === 'active') {
       result = result.filter(task => !task.completed);
     } else if (filter === 'completed') {
       result = result.filter(task => task.completed);
     }
 
-    // Filter by category
     if (selectedCategory) {
       result = result.filter(task => task.categoryId === selectedCategory);
     }
 
-    // Filter by tags
     if (selectedTags.length > 0) {
       result = result.filter(task =>
         selectedTags.some(tag => task.tags.includes(tag))
       );
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(task =>
@@ -139,7 +247,6 @@ export const useTasks = () => {
       );
     }
 
-    // Sort
     result.sort((a, b) => {
       switch (sort) {
         case 'date':
@@ -181,7 +288,6 @@ export const useTasks = () => {
   }, [tasks]);
 
   const smartSuggestions = useMemo(() => {
-    // Simple smart suggestions based on patterns
     const suggestions: string[] = [];
     
     const overdueCount = stats.overdue;
@@ -204,6 +310,7 @@ export const useTasks = () => {
   return {
     tasks: filteredAndSortedTasks,
     allTasks: tasks,
+    loading,
     filter,
     setFilter,
     sort,
