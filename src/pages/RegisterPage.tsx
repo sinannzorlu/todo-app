@@ -33,8 +33,19 @@ const RegisterPage = () => {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır');
+    if (password.length < 8) {
+      setError('Şifre en az 8 karakter olmalıdır');
+      return;
+    }
+
+    // Check for required character types
+    const hasLowercase = /[a-z]/.test(password);
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (!hasLowercase || !hasUppercase || !hasNumber || !hasSpecial) {
+      setError('Şifre büyük harf, küçük harf, rakam ve özel karakter içermelidir');
       return;
     }
 
@@ -174,7 +185,7 @@ const RegisterPage = () => {
               <Input
                 id="password"
                 type="password"
-                placeholder="En az 6 karakter"
+                placeholder="En az 8 karakter (büyük/küçük harf, rakam, özel karakter)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
