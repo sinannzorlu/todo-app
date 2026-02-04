@@ -5,7 +5,7 @@ import path from "path";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  
+
   return {
     server: {
       host: "::",
@@ -21,9 +21,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL || "https://xzaxmrpuheyzyinkaoff.supabase.co"),
-      'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6YXhtcnB1aGV5enlpbmthb2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAxNTAxNTgsImV4cCI6MjA4NTcyNjE1OH0.vWdQDQkywZ_KUjyn2HK_3_BqX557pdbMM5-zIIB7Qqs"),
-      'import.meta.env.VITE_SUPABASE_PROJECT_ID': JSON.stringify(env.VITE_SUPABASE_PROJECT_ID || "xzaxmrpuheyzyinkaoff"),
+      // Intentionally removed hardcoded fallbacks to force usage of .env files
     },
   };
 });
