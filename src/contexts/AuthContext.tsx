@@ -20,21 +20,58 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
+    // Handle auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth State Change:", event, session);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial session check
+    const initializeAuth = async () => {
+      // Check if we have a session in the URL hash (Manual Recovery)
+      // This is necessary if auto-detection fails or hash routing interferes
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        try {
+          const params = new URLSearchParams(hash.substring(1)); // remove #
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+
+          if (accessToken) {
+            console.log("Found access token in URL, manually setting session...");
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+
+            if (error) throw error;
+
+            if (data.session) {
+              setSession(data.session);
+              setUser(data.session.user);
+              setLoading(false);
+              // Clean up URL
+              window.history.replaceState(null, '', window.location.pathname);
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("Manual session recovery failed:", err);
+        }
+      }
+
+      // Fallback to standard session check
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     return () => subscription.unsubscribe();
   }, []);
